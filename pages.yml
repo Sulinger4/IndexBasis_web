@@ -1,0 +1,59 @@
+name: Deploy MySQL data to Pages
+
+on:
+  push:
+    paths:
+      - index.html
+      - app.js
+      - api-config.js
+      - styles.css
+      - .github/workflows/pages.yml
+      - scripts/build_pages.py
+      - data/mysql-snapshot.json
+  schedule:
+    - cron: '49 0,8,9,10,12 * * 1-5'
+    - cron: '19 8 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    outputs:
+      changed: ${{ steps.build.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build static site from this repository MySQL snapshot
+        id: build
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+        run: |
+          python3 scripts/build_pages.py --output-dir _site --compare-url "https://${REPOSITORY_OWNER}.github.io/${REPOSITORY_NAME}/_deployment.json"
+      - uses: actions/upload-pages-artifact@v4
+        if: steps.build.outputs.changed == 'true'
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
