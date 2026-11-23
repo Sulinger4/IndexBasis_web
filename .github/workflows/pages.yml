@@ -5,14 +5,10 @@ on:
     paths:
       - index.html
       - app.js
-      - api-config.js
       - styles.css
       - .github/workflows/pages.yml
       - scripts/build_pages.py
       - data/mysql-snapshot.json
-  schedule:
-    - cron: '49 0,8,9,10,12 * * 1-5'
-    - cron: '19 8 * * 1-5'
   workflow_dispatch:
 
 permissions:

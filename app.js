@@ -1,6 +1,5 @@
 "use strict";
 
-const API_BASE = (window.INDEX_BASIS_API_BASE || (["localhost", "127.0.0.1"].includes(location.hostname) ? "http://127.0.0.1:18090" : "")).replace(/\/$/, "");
 const LOCAL_MYSQL = ["localhost", "127.0.0.1"].includes(location.hostname);
 const PREFIXES = ["IH", "IF", "IC", "IM"];
 const TERMS = ["当月", "下月", "当季", "下季"];
@@ -805,14 +804,11 @@ async function readPublishedChunk(file) {
   if (!/^(?:recent|\d{4})-[a-f0-9]{16}\.json$/.test(file)) {
     throw new Error("数据文件名不正确");
   }
-  return (await readPayload(await fetch(`${API_BASE}/api/chunks/${file}`))).rows;
+  return (await readPayload(await fetch(`./data/fast/${file}`))).rows;
 }
 
 async function loadInitialPayload() {
-  if (!API_BASE || (!LOCAL_MYSQL && !API_BASE.startsWith("https://"))) {
-    throw new Error("请配置公网 HTTPS MySQL API 地址");
-  }
-  const response = await fetch(`${API_BASE}/api/manifest`, { cache: "no-store", signal: AbortSignal.timeout(20000) });
+  const response = await fetch("./data/fast/manifest.json", { cache: "no-cache" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const manifest = await response.json();
   if (manifest.schemaVersion !== 2 || !Array.isArray(manifest.history)
@@ -881,7 +877,7 @@ async function loadData() {
   } catch (error) {
     byId("status-dot").className = "status-dot error";
     byId("status-text").textContent = "数据读取失败";
-    setNotice(`无法读取 MySQL API：${error.message}`, true);
+    setNotice(`无法读取网页数据：${error.message}`, true);
     renderAll();
   }
 }

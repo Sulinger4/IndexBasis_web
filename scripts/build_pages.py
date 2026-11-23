@@ -14,17 +14,13 @@ from urllib.request import urlopen
 from urllib.error import HTTPError
 
 SITE = Path(__file__).resolve().parents[1]
-SOURCE = "https://ximengy127.github.io/index-basis-public/data/data.json"
 SOURCES = {"Wind 日频", "米筐日频"}
 GROUPS = Counter({prefix: 4 for prefix in ("IH", "IF", "IC", "IM")})
 
 
-def load_payload(snapshot: Path | None) -> dict:
-    if snapshot:
-        with snapshot.open("rb") as stream:
-            return json.load(stream)
-    with urlopen(SOURCE, timeout=60) as response:
-        return json.load(response)
+def load_payload(snapshot: Path) -> dict:
+    with snapshot.open("rb") as stream:
+        return json.load(stream)
 
 
 def validate(payload: dict) -> None:
@@ -97,7 +93,7 @@ def deployment_signature(payload: dict) -> str:
         key=lambda row: (row["date"], row["contract"]),
     )
     digest = sha256(json_bytes(values))
-    for name in ("index.html", "app.js", "styles.css", ".nojekyll", "api-config.js"):
+    for name in ("index.html", "app.js", "styles.css", ".nojekyll"):
         digest.update(name.encode())
         digest.update((SITE / name).read_bytes())
     return digest.hexdigest()
@@ -116,7 +112,7 @@ def current_signature(url: str) -> str | None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--snapshot", type=Path, default=None,
+    parser.add_argument("--snapshot", type=Path, default=SITE / "data" / "mysql-snapshot.json",
                         help="Read the MySQL export stored in this repository.")
     parser.add_argument("--compare-url", help="Previously deployed signature URL")
     args = parser.parse_args()
@@ -132,7 +128,7 @@ def main() -> None:
         print("Data and frontend match the deployed site; skipping deployment.")
         return
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("index.html", "app.js", "styles.css", ".nojekyll", "api-config.js"):
+    for name in ("index.html", "app.js", "styles.css", ".nojekyll"):
         shutil.copyfile(SITE / name, args.output_dir / name)
     write_bundle(args.output_dir / "data" / "fast", payload)
     (args.output_dir / "_deployment.json").write_bytes(json_bytes({"signature": signature}))
